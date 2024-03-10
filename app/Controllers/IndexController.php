@@ -7,16 +7,23 @@
      */
 
     namespace App\Controllers;
-    use App\Models\Usuario;
     use App\Controllers\BaseController;
+    use App\Models\Usuarios;
 
-    class IndexController extends BaseController{
-        public function IndexAction(){
-            $data = [];
+    class IndexController extends BaseController {
+        public function indexAction() {
 
-            $data["profile"] = $_SESSION["profile"];
-            $data["usuarios"] = Usuario::getInstancia()->getAll();
+            $claseUsuario = Usuarios::getInstancia();
+            if (isset($_GET['q'])) {
+                $usuarios = $claseUsuario->search($_GET['q']);
+            } else {
+                // Obtener todos los usuarios (por defecto
+            $usuarios = $claseUsuario->getAll();
+            }
 
-            $this->renderHTML("../views/index_view.php", $data);
+            $data = ['usuarios' => $usuarios, 'auth' => isset($_SESSION['auth'])];
+            $this->renderHTML('../views/index_view.php', $data);       
+            
+
         }
     }

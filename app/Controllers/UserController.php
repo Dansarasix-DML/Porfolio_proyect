@@ -7,52 +7,270 @@
      */
 
     namespace App\Controllers;
-    use App\Models\Usuario;
     use App\Controllers\BaseController;
+    use App\Models\Trabajos;
+    use App\Models\Usuarios;
+    use App\Models\CategoriaSkills;
+    use App\Models\Skills;
+    use App\Models\RedesSociales;
+    use App\Models\Proyectos;
 
     class UserController extends BaseController{
-        public function UserAction($request){
-            $data = [];
+        public function perfilAction() {
+            // Comprobar si el usuario está logueado
+            if (!isset($_SESSION['auth'])) {
+                header('Location: /login');
+            }
+            $claseUsuario = Usuarios::getInstancia();
+            $usuario = $claseUsuario->getUsuario($_SESSION['usuario']);
+            $claseCategoriaSkils = CategoriaSkills::getInstancia();
+            $categoriaSkills = $claseCategoriaSkils->getAll();
+            if (isset($_POST['anadir_trabajo'])) {
+                $titulo = $_POST['titulo'] ?? null;
+                $fecha_inicio = $_POST['fecha_inicio'] ?? null;
+                $fecha_final = $_POST['fecha_final'] ?? null;
+                $descripcion = $_POST['descripcion'] ?? null;
+                $claseTrabajo = Trabajos::getInstancia();
+                $claseTrabajo->set($titulo, $descripcion, $fecha_inicio, $fecha_final, $usuario['id']);
+                if ($claseUsuario->getMensaje() == 'Trabajo añadido') {
+                    echo "<h2>" . $claseUsuario->getMensaje() . "</h2>";
+                } else {
+                    echo "<h2>" . $claseUsuario->getMensaje() . "</h2>";
+                }
+            }
 
-            $parts = explode("/", $request);
-            $id = end($parts);
+            if (isset($_POST['anadir_proyecto'])) {
+                $titulo = $_POST['titulo'] ?? null;
+                $descripcion = $_POST['descripcion'] ?? null;
+                $claseProyecto = Proyectos::getInstancia();
+                $claseProyecto->anadirProyecto($titulo, $descripcion, $usuario['id']);
+                if ($claseUsuario->getMensaje() == 'Proyecto añadido') {
+                    echo "<h2>" . $claseUsuario->getMensaje() . "</h2>";
+                } else {
+                    echo "<h2>" . $claseUsuario->getMensaje() . "</h2>";
+                }
+            }
 
-            $usuario = Usuario::getInstancia();
+            if (isset($_POST['anadir_habilidad']) && isset($_POST['habilidades']) && isset($_POST['categoria_habilidad'])) {
+                $habilidades = $_POST['habilidades'] ?? null;
+                $categorias_skills_categoria = $_POST['categoria_habilidad'] ?? null;
+                $claseSkill = Skills::getInstancia();
+                $claseSkill->anadirSkill($habilidades, $usuario['id'], $categorias_skills_categoria);
 
-            $data["profile"] = $_SESSION["profile"];
-            $data["usuario"] = $usuario->get($id);
+                if ($claseUsuario->getMensaje() == 'Skill añadida correctamente') {
+                    echo "<h2>" . $claseUsuario->getMensaje() . "</h2>";
+                } else {
+                    echo "<h2>" . $claseUsuario->getMensaje() . "</h2>";
+                }
+            }
 
-            $this->renderHTML("../views/user_view.php", $data);
+
+            if (isset($_POST['anadir_red_social']) && isset($_POST['url'])) {
+                $url = $_POST['url'] ?? null;
+                $claseRedSocial = RedesSociales::getInstancia();
+                $claseRedSocial->anadirRedSocial($url, $usuario['id']);
+                if ($claseUsuario->getMensaje() == 'Red Social añadida correctamente') {
+                    echo "<h2>" . $claseUsuario->getMensaje() . "</h2>";
+                } else {
+                    echo "<h2>" . $claseUsuario->getMensaje() . "</h2>";
+                }
+            }
+
+
+            if (isset($_POST['actualizar_perfil'])) {
+                $foto_perfil = $_FILES['foto_perfil'] ?? null;
+                $nombre = $_POST['nombre'] ?? null;
+                $apellidos = $_POST['apellidos'] ?? null;
+                $categoria_profesional = $_POST['categoria_profesional'] ?? null;
+                $resumen_perfil = $_POST['resumen_perfil'] ?? null;
+
+                $ruta_destino = 'img/' . $foto_perfil['name']; // Especifica la ruta donde guardar la imagen
+                move_uploaded_file($foto_perfil['tmp_name'], $ruta_destino);
+
+                $claseUsuario->actualizarUsuario($nombre, $apellidos, $categoria_profesional, $resumen_perfil, $ruta_destino, $usuario['id']); // Pasar la ruta de la imagen como argumento
+                
+            }
+
+
+            $usuario = $claseUsuario->getUsuario($_SESSION['usuario']);
+            $data = ['usuario' => $usuario, 'categorias' => $categoriaSkills, 'auth' => isset($_SESSION['auth'])];
+            $this->renderHTML('../views/perfil_view.php', $data);
         }
 
-        public function EditAction() {
-            if (isset($_POST)) {
-                $usuario = Usuario::getInstancia();
+        public function eliminarTrabajoAction() {
+            if (!isset($_SESSION['auth'])) {
+                header('Location: /login');
+            }
+            $claseUsuario = Usuarios::getInstancia();
+            $usuario = $claseUsuario->getUsuario($_SESSION['usuario']);
+            $trabajo = $claseUsuario->getTrabajo($_SESSION['usuario']);
+            if ($trabajo['usuarios_id'] != $usuario['id']) {
+                header('Location: /perfil');
+            }
 
-                $usuario->setNombre($_POST["nombre"]);
-                $usuario->setApellidos($_POST["apellidos"]);
-                $usuario->setEmail($_POST["email"]);
-                $usuario->setCategoriasProfesional($_POST["categorias_profesional"]);
-                $usuario->setResumenPerfil($_POST["resumen_perfil"]);
-                $usuario->setFoto($_POST["foto"]);
-                $usuario->setVisible($_POST["visible"]);
-
-                $usuario->edit($_SESSION["user"]["id"]);
-
-                var_dump($usuario->getMessage());
-                exit();
-                
-                header("Location: /user/" . $_SESSION["user"]["id"]);
+            $id = explode('/', $_SERVER['REQUEST_URI'])[2];
+            $claseTrabajo = Trabajos::getInstancia();
+            $claseTrabajo->eliminarTrabajo($id);
+            if ($claseTrabajo->getMensaje() == 'Trabajo eliminado') {
+                echo "<h2>" . $claseTrabajo->getMensaje() . "</h2>";
+                header('Location: /perfil');
+            } else {
+                echo "<h2>" . $claseTrabajo->getMensaje() . "</h2>";
             }
         }
 
-        public function EditViewAction($request){
-            $data = [];
+        public function eliminarProyectoAction() {
+            if (!isset($_SESSION['auth'])) {
+                header('Location: /login');
+            }
+            $claseUsuario = Usuarios::getInstancia();
+            $usuario = $claseUsuario->getUsuario($_SESSION['usuario']);
+            $proyecto = $claseUsuario->getProyecto($_SESSION['usuario']);
+            if ($proyecto['usuarios_id'] != $usuario['id']) {
+                header('Location: /perfil');
+            }
 
-
-            $data["profile"] = $_SESSION["profile"];
-            $data["usuario"] = $_SESSION["user"];
-
-            $this->renderHTML("../views/edit_view.php", $data);
+            $id = explode('/', $_SERVER['REQUEST_URI'])[2];
+            $claseProyecto = Proyectos::getInstancia();
+            $claseProyecto->eliminarProyecto($id);
+            if ($claseProyecto->getMensaje() == 'Proyecto eliminado') {
+                echo "<h2>" . $claseProyecto->getMensaje() . "</h2>";
+                header('Location: /perfil');
+            } else {
+                echo "<h2>" . $claseProyecto->getMensaje() . "</h2>";
+            }
         }
+
+        public function eliminarRedSocialAction() {
+            if (!isset($_SESSION['auth'])) {
+                header('Location: /login');
+            }
+            $claseUsuario = Usuarios::getInstancia();
+            $usuario = $claseUsuario->getUsuario($_SESSION['usuario']);
+            $redSocial = $claseUsuario->getRedSocial($_SESSION['usuario']);
+            if ($redSocial['usuarios_id'] != $usuario['id']) {
+                header('Location: /perfil');
+            }
+
+            $id = explode('/', $_SERVER['REQUEST_URI'])[2];
+            $claseRedSocial = RedesSociales::getInstancia();
+            $claseRedSocial->eliminarRedSocial($id);
+            if ($claseRedSocial->getMensaje() == 'Red Social eliminada') {
+                echo "<h2>" . $claseRedSocial->getMensaje() . "</h2>";
+                header('Location: /perfil');
+            } else {
+                echo "<h2>" . $claseRedSocial->getMensaje() . "</h2>";
+            }
+        }
+
+        public function eliminarHabilidadAction() {
+            if (!isset($_SESSION['auth'])) {
+                header('Location: /login');
+            }
+            $claseUsuario = Usuarios::getInstancia();
+            $usuario = $claseUsuario->getUsuario($_SESSION['usuario']);
+            $habilidad = $claseUsuario->getHabilidad($_SESSION['usuario']);
+            if ($habilidad['usuarios_id'] != $usuario['id']) {
+                header('Location: /perfil');
+            }
+
+            $id = explode('/', $_SERVER['REQUEST_URI'])[2];
+            $claseSkill = Skills::getInstancia();
+            $claseSkill->eliminarSkill($id);
+            if ($claseSkill->getMensaje() == 'Skill eliminada') {
+                echo "<h2>" . $claseSkill->getMensaje() . "</h2>";
+                header('Location: /perfil');
+            } else {
+                echo "<h2>" . $claseSkill->getMensaje() . "</h2>";
+            }
+        }
+
+        public function ocultarTrabajoAction() {
+            if (!isset($_SESSION['auth'])) {
+                header('Location: /login');
+            }
+            $claseUsuario = Usuarios::getInstancia();
+            $usuario = $claseUsuario->getUsuario($_SESSION['usuario']);
+            $trabajo = $claseUsuario->getTrabajo($_SESSION['usuario']);
+            if ($trabajo['usuarios_id'] != $usuario['id']) {
+                header('Location: /perfil');
+            }
+
+            $id = explode('/', $_SERVER['REQUEST_URI'])[2];
+            $claseTrabajo = Trabajos::getInstancia();
+            $claseTrabajo->ocultarTrabajo($id);
+            if ($claseTrabajo->getMensaje() == 'Trabajo ocultado') {
+                echo "<h2>" . $claseTrabajo->getMensaje() . "</h2>";
+                header('Location: /perfil');
+            } else {
+                echo "<h2>" . $claseTrabajo->getMensaje() . "</h2>";
+            }
+        }
+
+        public function ocultarRedSocialAction() {
+            if (!isset($_SESSION['auth'])) {
+                header('Location: /login');
+            }
+            $claseUsuario = Usuarios::getInstancia();
+            $usuario = $claseUsuario->getUsuario($_SESSION['usuario']);
+            $redSocial = $claseUsuario->getRedSocial($_SESSION['usuario']);
+            if ($redSocial['usuarios_id'] != $usuario['id']) {
+                header('Location: /perfil');
+            }
+
+            $id = explode('/', $_SERVER['REQUEST_URI'])[2];
+            $claseRedSocial = RedesSociales::getInstancia();
+            $claseRedSocial->ocultarRedSocial($id);
+            if ($claseRedSocial->getMensaje() == 'Red social ocultada') {
+                echo "<h2>" . $claseRedSocial->getMensaje() . "</h2>";
+                header('Location: /perfil');
+            } else {
+                echo "<h2>" . $claseRedSocial->getMensaje() . "</h2>";
+            }
+        }
+
+        public function ocultarHabilidadAction() {
+            if (!isset($_SESSION['auth'])) {
+                header('Location: /login');
+            }
+            $claseUsuario = Usuarios::getInstancia();
+            $usuario = $claseUsuario->getUsuario($_SESSION['usuario']);
+            $habilidad = $claseUsuario->getHabilidad($_SESSION['usuario']);
+            if ($habilidad['usuarios_id'] != $usuario['id']) {
+                header('Location: /perfil');
+            }
+
+            $id = explode('/', $_SERVER['REQUEST_URI'])[2];
+            $claseSkill = Skills::getInstancia();
+            $claseSkill->ocultarSkill($id);
+            if ($claseSkill->getMensaje() == 'Skill ocultada') {
+                echo "<h2>" . $claseSkill->getMensaje() . "</h2>";
+                header('Location: /perfil');
+            } else {
+                echo "<h2>" . $claseSkill->getMensaje() . "</h2>";
+            }
+        }
+
+        public function ocultarProyectoAction() {
+            if (!isset($_SESSION['auth'])) {
+                header('Location: /login');
+            }
+            $claseUsuario = Usuarios::getInstancia();
+            $usuario = $claseUsuario->getUsuario($_SESSION['usuario']);
+            $proyecto = $claseUsuario->getProyecto($_SESSION['usuario']);
+            if ($proyecto['usuarios_id'] != $usuario['id']) {
+                header('Location: /perfil');
+            }
+
+            $id = explode('/', $_SERVER['REQUEST_URI'])[2];
+            $claseProyecto = Proyectos::getInstancia();
+            $claseProyecto->ocultarProyecto($id);
+            if ($claseProyecto->getMensaje() == 'Proyecto ocultado') {
+                echo "<h2>" . $claseProyecto->getMensaje() . "</h2>";
+                header('Location: /perfil');
+            } else {
+                echo "<h2>" . $claseProyecto->getMensaje() . "</h2>";
+            }
+        }
+
     }
